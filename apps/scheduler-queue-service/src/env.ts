@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 const EnvSchema = z.object({
-  PORT: z.number(),
+  PORT: z.coerce.number().min(3000).max(10000).transform(String),
   NODE_ENV: z
     .enum(["development", "production", "test"])
     .default("development"),
@@ -29,7 +29,7 @@ declare global {
 /* eslint-enable @typescript-eslint/no-namespace */
 
 const env: z.infer<typeof EnvSchema> = {
-  PORT: Number(process.env.PORT),
+  PORT: Number(process.env.PORT).toString(),
   NODE_ENV: process.env.NODE_ENV || "development",
 
   POSTGRES_DATABASE_URL: process.env.POSTGRES_DATABASE_URL,
