@@ -1,0 +1,11 @@
+{
+  "watch": [
+    "src",
+    ".env"
+  ],
+  "ext": "ts",
+  "ignore": [
+    "dist"
+  ],
+  "exec": "tsx ./src/index.ts"
+}
