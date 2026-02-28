@@ -1,42 +1,40 @@
-import { z } from "zod";
+import 'dotenv/config';
+import { z } from 'zod';
 
 const EnvSchema = z.object({
   PORT: z.coerce.number().min(3000).max(10000).transform(String),
   NODE_ENV: z
-    .enum(["development", "production", "test"])
-    .default("development"),
+    .enum(['development', 'production', 'test'])
+    .default('development'),
 
   POSTGRES_DATABASE_URL: z.string(),
-  POSTGRES_DATABASE_PUBLIC_URL: z.string(),
-  POSTGRES_SSL: z.string().default("false"),
-  ALLOWED_ORIGINS: z.string().refine((value) => {
-    return (
-      value === "*" ||
-      z.url().safeParse(value).success ||
-      z.array(z.url()).safeParse(value.split(",")).success
-    );
-  }),
+  POSTGRES_SSL: z.string().default('false'),
+  DB_SCHEMA: z.string().optional(),
+
+  API_SIGNING_SECRET: z.string().min(1),
+  SCHEDULER_CONFIG_PATH: z.string().optional(),
 });
 
 type EnvSchemaType = z.infer<typeof EnvSchema>;
 
-/* eslint-disable @typescript-eslint/no-namespace */
+/* eslint-disable @typescript-eslint/no-namespace, @typescript-eslint/no-empty-object-type */
 declare global {
   namespace NodeJS {
     interface ProcessEnv extends EnvSchemaType {}
   }
 }
-/* eslint-enable @typescript-eslint/no-namespace */
+/* eslint-enable @typescript-eslint/no-namespace, @typescript-eslint/no-empty-object-type */
 
 const env: z.infer<typeof EnvSchema> = {
   PORT: Number(process.env.PORT).toString(),
-  NODE_ENV: process.env.NODE_ENV || "development",
+  NODE_ENV: process.env.NODE_ENV || 'development',
 
   POSTGRES_DATABASE_URL: process.env.POSTGRES_DATABASE_URL,
-  POSTGRES_DATABASE_PUBLIC_URL: process.env.POSTGRES_DATABASE_PUBLIC_URL,
   POSTGRES_SSL: process.env.POSTGRES_SSL,
+  DB_SCHEMA: process.env.DB_SCHEMA,
 
-  ALLOWED_ORIGINS: process.env.ALLOWED_ORIGINS,
+  API_SIGNING_SECRET: process.env.API_SIGNING_SECRET,
+  SCHEDULER_CONFIG_PATH: process.env.SCHEDULER_CONFIG_PATH,
 };
 
 EnvSchema.parse(env);

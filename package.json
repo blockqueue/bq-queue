@@ -4,13 +4,17 @@
   "scripts": {
     "build": "turbo run build",
     "dev": "turbo run dev",
-    "start": "turbo run start",
+    "dashboard": "env-cmd -f ./docker/dashboard/.env npx --yes @pg-boss/dashboard",
     "lint": "turbo run lint",
-    "format": "prettier --write \"**/*.{ts,tsx,md}\"",
-    "check-types": "turbo run check-types"
+    "format": "prettier --write \"{apps,packages}/**/*.{ts,tsx,md,js,jsx,json,mdx}\"",
+    "format:check": "prettier --check \"{apps,packages}/**/*.{ts,tsx,md}\"",
+    "remove:apps": "(cd apps/queue-service && rm -rf node_modules dist)",
+    "reinstall": "npm run remove:apps && rm -rf node_modules && npm install"
   },
   "devDependencies": {
+    "env-cmd": "^11.0.0",
     "prettier": "^3.6.2",
+    "prettier-plugin-organize-imports": "^4.1.0",
     "turbo": "^2.6.1",
     "typescript": "5.9.2"
   },
@@ -21,8 +25,5 @@
   "workspaces": [
     "apps/*",
     "packages/*"
-  ],
-  "dependencies": {
-    "@sentry/node": "^10.26.0"
-  }
+  ]
 }

@@ -1,0 +1,40 @@
+services:
+  database:
+    image: postgres:18
+    ports:
+      - '5432:5432'
+    env_file:
+      - ./docker/database/.env
+    volumes:
+      - ./docker/database/data:/var/lib/postgresql:delegated
+    healthcheck:
+      test: ['CMD', 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}']
+      interval: 5s
+      retries: 5
+      timeout: 10s
+
+  # Official pg-boss dashboard – https://github.com/timgit/pg-boss/tree/master/packages/dashboard
+  # Open http://localhost:3000 after database and queue-service have run (pg-boss schema exists).
+  pg-boss-dashboard:
+    build:
+      context: ./docker/dashboard
+      dockerfile: Dockerfile
+    ports:
+      - '3000:3000'
+    env_file:
+      - ./docker/dashboard/.env
+    depends_on:
+      database:
+        condition: service_healthy
+
+  queue-service-dev:
+    build:
+      context: .
+      dockerfile: ./docker/queue-service/Dockerfile
+    ports:
+      - '9000:9000'
+    volumes:
+      - ./node_modules:/app/node_modules
+      - ./apps/queue-service:/app/apps/queue-service
+    env_file:
+      - apps/queue-service/.env

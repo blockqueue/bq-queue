@@ -1,0 +1,16 @@
+# Dependencies and build output
+node_modules
+dist
+.turbo
+
+# Lock files
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+
+# IDE / tooling
+.cursor
+
+# Generated or vendored
+*.min.js
+*.min.css
