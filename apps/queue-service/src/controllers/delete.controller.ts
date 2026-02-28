@@ -6,7 +6,7 @@ import { jobIdempotency } from '../db/schema';
 import { clearExistingJob } from '../services/job-idempotency.service';
 
 const DeleteBodySchema = z.object({
-  idempotencyKey: z.string().uuid(),
+  idempotencyKey: z.string().min(1),
 });
 
 export function deleteJob() {

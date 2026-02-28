@@ -1,4 +1,4 @@
-import { pgSchema, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { pgSchema, text, timestamp } from 'drizzle-orm/pg-core';
 import { DB_SCHEMA } from '../constants';
 
 const appSchema = pgSchema(DB_SCHEMA);
@@ -14,10 +14,9 @@ export const jobTypeEnum = appSchema.enum('job_type', [
 
 export const jobIdempotency = appSchema.table('job_idempotency', {
   idempotencyKey: text('idempotency_key').primaryKey().notNull(),
-  jobType: jobTypeEnum('job_type').notNull().default(jobType.ONE_OFF),
+  jobType: jobTypeEnum('job_type').notNull(),
   pgBossJobId: text('pg_boss_job_id').notNull(),
   queue: text('queue').notNull(),
-  dynamicScheduleId: uuid('dynamic_schedule_id'),
   createdAt: timestamp('created_at', { withTimezone: true })
     .defaultNow()
     .notNull(),

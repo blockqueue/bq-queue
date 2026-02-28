@@ -1,5 +1,5 @@
 {
-  "id": "08747bed-38ef-4b2c-9329-0378a6ce8a33",
+  "id": "f26e3e6b-3f05-4b36-acef-20174c5781dd",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -19,8 +19,7 @@
           "type": "job_type",
           "typeSchema": "bq_queue",
           "primaryKey": false,
-          "notNull": true,
-          "default": "'one_off'"
+          "notNull": true
         },
         "pg_boss_job_id": {
           "name": "pg_boss_job_id",
@@ -33,12 +32,6 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true
-        },
-        "dynamic_schedule_id": {
-          "name": "dynamic_schedule_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
         },
         "created_at": {
           "name": "created_at",
