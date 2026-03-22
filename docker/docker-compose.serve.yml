@@ -14,14 +14,16 @@ services:
       timeout: 10s
 
   bq-queue:
-    image: blockqueue/bq-queue:latest # for testing the locally built image
-    # image: ghcr.io/blockqueue/bq-queue:v0.0.1 # for testing the remote image build
+    # image: blockqueue/bq-queue:latest # for testing the locally built image
+    image: ghcr.io/blockqueue/bq-queue:v0.0.1 # for testing the remote image build
     ports:
       - '9000:9000'
     volumes:
       - ../apps/queue-service/config:/config
     env_file:
       - ../apps/queue-service/.env
+    environment:
+      - SCHEDULER_CONFIG_PATH=/config
 
   bq-queue-ui:
     image: blockqueue/bq-queue-ui:latest # for testing the locally built image
