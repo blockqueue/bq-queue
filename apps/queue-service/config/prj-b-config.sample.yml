@@ -1,0 +1,69 @@
+# Queue Service – Sample configuration for Project B
+# Copy this file to config.yml and set your endpoints and secrets.
+# Use ${ENV_VAR} in values to substitute from the environment (e.g. signature_secret).
+
+# ------------------------------------------------------------------------------
+# Global defaults
+# Applied to every queue when not overridden in the queue definition.
+# Note: retry and expiry (expireInSeconds) are configured per queue only, not here.
+# ------------------------------------------------------------------------------
+global:
+  # How many jobs from a queue can run at the same time (overridable per queue).
+  default_queue_concurrency: 1
+  # Default retry behaviour when a queue does not set its own (overridable per queue).
+  retryLimit: 3
+  retryDelay: 60
+  # Use exponential backoff between retries (pg-boss: delay doubles each retry). Default: true.
+  retryBackoff: true
+
+# ------------------------------------------------------------------------------
+# Queues
+# Only queues listed here are valid for one-off and schedule APIs.
+# Each queue has an endpoint that receives signed, timestamped POST requests.
+# ------------------------------------------------------------------------------
+queues:
+  # Post publishing: publish content to channels (e.g. social, CMS).
+  PRJ_B_POST_PUBLISHING:
+    endpoint: 'https://api.example.com/internal/posts/publish'
+    method: 'POST'
+    signature_secret: ${POST_PUBLISHING_SIGNING_SECRET}
+    max_concurrent_jobs: 5
+    retryLimit: 3
+    description: 'Publish posts to configured channels'
+
+  # Email sending: transactional and bulk email.
+  PRJ_B_EMAIL_DELIVERY:
+    endpoint: 'https://api.example.com/internal/email/send'
+    method: 'POST'
+    signature_secret: ${EMAIL_SIGNING_SECRET}
+    max_concurrent_jobs: 10
+    retryLimit: 5
+    description: 'Send transactional and campaign emails'
+
+# ------------------------------------------------------------------------------
+# Static cron jobs
+# These run on a fixed schedule. Each references a queue defined above.
+# When the cron fires, a job is enqueued and the queue’s endpoint is called with a signed payload.
+# Each "name" is the pg-boss schedule key; use unique names so multiple crons can share a queue.
+# ------------------------------------------------------------------------------
+cron_jobs:
+  - name: 'daily-email-digest'
+    queue: 'PRJ_B_EMAIL_DELIVERY'
+    schedule: '0 7 * * *' # 07:00 every day
+    timezone: 'UTC'
+    payload:
+      type: 'digest'
+      channel: 'email'
+
+# ------------------------------------------------------------------------------
+# pg-boss retention and maintenance (optional overrides)
+# Omit this section to use defaults, or set only the keys you want to override.
+# @see https://timgit.github.io/pg-boss/#/./api/queues (Retention options)
+# ------------------------------------------------------------------------------
+cleanup:
+  maintenance_interval_seconds: 60 # default: 60
+  archive_completed_after_seconds: 86400 # default: 24h
+  archive_failed_after_seconds: 604800 # default: 7 days
+  retention_days: 7 # default: 7
+  delete_after_days: 7 # default: 7 (retain completed jobs)
+  warning_retention_days: 30 # default: 30

@@ -1,15 +1,16 @@
 import { createApp } from './app';
-import { loadSchedulerConfig } from './config/load';
+import { loadSchedulerConfigSegments, mergeQueuesForApi } from './config/load';
 import env from './env';
 import { startBoss, stopBoss } from './queue/boss';
 import { logger } from './utils/logger';
 
 async function main() {
-  const config = loadSchedulerConfig();
+  const segments = loadSchedulerConfigSegments();
+  const configs = segments.map((s) => s.config);
 
-  await startBoss(config);
+  await startBoss(configs);
 
-  const app = createApp(config);
+  const app = createApp(mergeQueuesForApi(configs));
 
   const server = app.listen(Number(env.PORT), () => {
     logger.info({ port: env.PORT }, 'Queue Service is running');

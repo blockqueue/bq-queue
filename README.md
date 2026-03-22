@@ -13,7 +13,7 @@ Use it when you want a single place to schedule jobs, retry failures, and fan ou
 3. [Prerequisites](#prerequisites)
 4. [Quick start](#quick-start)
 5. [Environment variables](#environment-variables)
-6. [Scheduler configuration (YAML)](#scheduler-configuration-yaml)
+6. [Scheduler configuration (YAML)](#scheduler-configuration-yaml) — [Cleanup](#cleanup-global-vs-per-project)
 7. [HTTP API](#http-api)
 8. [Authenticating requests to the queue service](#authenticating-requests-to-the-queue-service)
 9. [What your downstream endpoint receives](#what-your-downstream-endpoint-receives)
@@ -94,13 +94,16 @@ Create a database and user, or use Docker (see [Docker](#docker)). You need a co
 
 ### 2. Queue service environment
 
-From `apps/queue-service/`, copy env and config:
+From `apps/queue-service/`, copy env and add one or more scheduler YAML files under your config directory:
 
 ```bash
 cd apps/queue-service
-# Create .env with at least POSTGRES_DATABASE_URL, API_SIGNING_SECRET, PORT (3000–10000)
-cp config/config.sample.yml config/config.yml
-# Edit config.yml: set queues, endpoints, and secrets (or ${VAR} placeholders)
+# Create .env with at least POSTGRES_DATABASE_URL, API_SIGNING_SECRET, PORT (3000–10000),
+# and SCHEDULER_CONFIG_DIR (path to the directory that holds your *.yml / *.yaml files)
+cp .env.example .env
+# Example: copy project samples into config/ and rename/edit (see Scheduler configuration below)
+cp config/prj-a-config.sample.yml config/prj-a.yml
+cp config/prj-b-config.sample.yml config/prj-b.yml
 ```
 
 Apply migrations (after setting `POSTGRES_DATABASE_URL`):
@@ -131,15 +134,15 @@ Use the signing flow in [Authenticating requests to the queue service](#authenti
 
 Loaded via `dotenv` from `.env` when present. All are validated at startup (`src/env.ts`).
 
-| Variable                | Required  | Description                                                                                                                        |
-| ----------------------- | --------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `POSTGRES_DATABASE_URL` | **Yes**   | PostgreSQL connection URL for pg-boss and app tables                                                                               |
-| `API_SIGNING_SECRET`    | **Yes**   | Shared secret for **incoming** requests to `/api/jobs/*` (HMAC signature)                                                          |
-| `PORT`                  | **Yes\*** | HTTP port; must be between **3000 and 10000** (inclusive). Set explicitly if unset defaults break validation                       |
-| `NODE_ENV`              | No        | `development` \| `production` \| `test` (default `development`)                                                                    |
-| `POSTGRES_SSL`          | No        | If `true`, connects with TLS (`rejectUnauthorized: false` for dev-style setups)                                                    |
-| `DB_SCHEMA`             | No        | PostgreSQL schema for app tables (default `bq_queue`). Migrations use this schema                                                  |
-| `SCHEDULER_CONFIG_PATH` | No        | Path to YAML config file or directory containing `config.yml`. Defaults to `config/config.yml` under the process working directory |
+| Variable                | Required  | Description                                                                                                                                          |
+| ----------------------- | --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POSTGRES_DATABASE_URL` | **Yes**   | PostgreSQL connection URL for pg-boss and app tables                                                                                                 |
+| `API_SIGNING_SECRET`    | **Yes**   | Shared secret for **incoming** requests to `/api/jobs/*` (HMAC signature)                                                                            |
+| `PORT`                  | **Yes\*** | HTTP port; must be between **3000 and 10000** (inclusive). Set explicitly if unset defaults break validation                                         |
+| `NODE_ENV`              | No        | `development` \| `production` \| `test` (default `development`)                                                                                      |
+| `POSTGRES_SSL`          | No        | If `true`, connects with TLS (`rejectUnauthorized: false` for dev-style setups)                                                                      |
+| `DB_SCHEMA`             | No        | PostgreSQL schema for app tables (default `bq_queue`). Migrations use this schema                                                                    |
+| `SCHEDULER_CONFIG_DIR`  | **Yes**   | Path to a **directory** whose `*.yml` / `*.yaml` files are loaded as scheduler config (see [Scheduler configuration](#scheduler-configuration-yaml)) |
 
 \*If `PORT` is missing, ensure your environment sets a valid port in range.
 
@@ -147,16 +150,39 @@ Loaded via `dotenv` from `.env` when present. All are validated at startup (`src
 
 ## Scheduler configuration (YAML)
 
-Path: `config/config.yml` by default, or `SCHEDULER_CONFIG_PATH`. Values support **`${ENV_VAR}`** substitution (see `src/config/substituteEnv.ts`).
+**Location:** `SCHEDULER_CONFIG_DIR` must point to an **existing directory** (resolved to an absolute path). There is no default single-file path.
 
-### Top-level keys
+**Multiple files:** Every `*.yml` and `*.yaml` file in that directory is loaded in **sorted filename order**. Each file is a full scheduler document (one logical “project” per file): `queues`, optional `global`, optional `cron_jobs`, optional `cleanup`.
+
+- **Per-file errors** (invalid YAML, schema failure, cron referencing an undefined queue in that file): the service **logs the error and skips that file**; startup continues.
+- **Across files:** **Queue names** and static cron **`name`** values must be unique among successfully loaded files. If a later file would repeat a queue name or cron name already taken by an earlier file, that **whole later file is skipped** and an error is logged.
+- **No valid files:** the service still starts; you get a warning and **no queues** until configs are fixed.
+
+Values support **`${ENV_VAR}`** substitution (see `src/config/substituteEnv.ts`).
+
+### Top-level keys (each file)
 
 | Key         | Required | Description                                                                                                                                                                           |
 | ----------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `queues`    | **Yes**  | Map of queue name → queue definition. **Only these names** are accepted by the one-off and schedule APIs                                                                              |
 | `global`    | No       | Defaults applied to queues: `default_queue_concurrency`, `max_concurrent_jobs`, `retryLimit`, `retryDelay`, `retryBackoff`, `expireInSeconds` (used when a queue omits its own), etc. |
 | `cron_jobs` | No       | Static schedules; each entry must reference a `queue` defined in `queues`                                                                                                             |
-| `cleanup`   | No       | pg-boss maintenance and per-queue retention (see sample file and `src/config/schema.ts`)                                                                                              |
+| `cleanup`   | No       | See [Cleanup: global vs per project](#cleanup-global-vs-per-project) below; sample files and `src/config/schema.ts`                                                                   |
+
+### Cleanup: global vs per project
+
+The service runs **one** [pg-boss](https://timgit.github.io/pg-boss/) instance for all loaded YAML files. The optional `cleanup` block is therefore used in **two different scopes**:
+
+| Scope                            | Which `cleanup` fields                                                                        | How it is chosen                                                                                                                                                                   |
+| -------------------------------- | --------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Boss-wide** (single instance)  | `maintenance_interval_seconds`, `warning_retention_days` — passed to the `PgBoss` constructor | Taken from the **first** loaded file (sorted filename order among successfully accepted segments) **that includes a `cleanup` key**. If no file defines `cleanup`, defaults apply. |
+| **Per queue** (per project file) | `retention_days`, `delete_after_days` — applied when each queue is created (`createQueue`)    | Each file’s own `cleanup` is used for **that file’s queues** only. Different projects can set different retention.                                                                 |
+
+**Practical notes**
+
+- If every project file repeats the same `maintenance_interval_seconds` / `warning_retention_days`, behavior matches a single global setting; only one source is actually passed to the constructor (the first file that has `cleanup`).
+- If only one file should control boss-wide options, put a `cleanup` section with those two fields in the file that sorts **first** alphabetically among your YAML names, or keep identical values in every file’s `cleanup` so any choice is equivalent.
+- Per-queue retention is independent: project B’s `retention_days` / `delete_after_days` affect only queues declared in project B’s file.
 
 ### `queues.<name>` (each queue)
 
@@ -171,7 +197,7 @@ Path: `config/config.yml` by default, or `SCHEDULER_CONFIG_PATH`. Values support
 | `wait_interval_after_success_seconds`      | No       | Optional delay after a successful HTTP response before completing the job                         |
 | `description`                              | No       | Documentation only                                                                                |
 
-See [`apps/queue-service/config/config.sample.yml`](apps/queue-service/config/config.sample.yml) for a full commented example.
+See [`apps/queue-service/config/prj-a-config.sample.yml`](apps/queue-service/config/prj-a-config.sample.yml) and [`apps/queue-service/config/prj-b-config.sample.yml`](apps/queue-service/config/prj-b-config.sample.yml) for commented examples you can copy into your config directory.
 
 ---
 
@@ -337,7 +363,7 @@ Under `cron_jobs`, each item needs:
 - `timezone` – optional, default `UTC`
 - `payload` – optional object passed into the scheduled job
 
-On startup, the service calls pg-boss `schedule()` for each entry. Invalid `queue` references fail at config load time.
+On startup, the service calls pg-boss `schedule()` for each entry in each **accepted** file. Cron `name` values must be unique across all files (see [Scheduler configuration](#scheduler-configuration-yaml)). If one file is invalid, only that file is skipped; static crons in other files still apply.
 
 ---
 
@@ -361,9 +387,11 @@ Set `POSTGRES_DATABASE_URL` (and optionally `DB_SCHEMA`). pg-boss creates its ow
 
 [`docker-compose.yml`](docker-compose.yml) includes:
 
-- **database** – PostgreSQL (see `docker/database/.env`)
+- **database** – PostgreSQL (see `docker/database/.env` — set `POSTGRES_USER`, `POSTGRES_DB`, and `POSTGRES_PASSWORD` so the healthcheck and volume init work)
 - **pg-boss-dashboard** – monitoring UI (port **3000**)
-- **queue-service-dev** – dev image mounting `apps/queue-service` (port **9000** in compose); requires `apps/queue-service/.env`
+- **queue-service-dev** – dev image mounting `apps/queue-service` (port **9000** in compose); requires `apps/queue-service/.env` with `SCHEDULER_CONFIG_DIR` pointing at your YAML directory (e.g. `./config`)
+
+The repo [`.dockerignore`](.dockerignore) excludes `**/database/data` so local Postgres volume directories (often root-owned) are not sent as build context and do not break `docker compose build`.
 
 Adjust ports and env files to match your setup. Start order: database healthy → other services.
 

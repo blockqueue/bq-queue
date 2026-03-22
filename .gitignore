@@ -39,4 +39,4 @@ yarn-error.log*
 
 apps/queue-service/config/config.yml
 
-docker/database/data
+docker/database/data/

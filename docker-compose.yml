@@ -8,10 +8,12 @@ services:
     volumes:
       - ./docker/database/data:/var/lib/postgresql:delegated
     healthcheck:
-      test: ['CMD', 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}']
+      # test: ['CMD-SHELL', 'pg_isready -U postgres']
+      test: ['CMD-SHELL', 'pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB']
       interval: 5s
-      retries: 5
-      timeout: 10s
+      retries: 10
+      timeout: 5s
+      start_period: 10s
 
   # Official pg-boss dashboard – https://github.com/timgit/pg-boss/tree/master/packages/dashboard
   # Open http://localhost:3000 after database and queue-service have run (pg-boss schema exists).
@@ -30,7 +32,7 @@ services:
   queue-service-dev:
     build:
       context: .
-      dockerfile: ./docker/queue-service/Dockerfile
+      dockerfile: ./docker/bq-queue/Dockerfile
     ports:
       - '9000:9000'
     volumes:

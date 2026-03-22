@@ -6,13 +6,13 @@ const EnvSchema = z.object({
   NODE_ENV: z
     .enum(['development', 'production', 'test'])
     .default('development'),
+  SCHEDULER_CONFIG_DIR: z.string(),
 
   POSTGRES_DATABASE_URL: z.string(),
   POSTGRES_SSL: z.string().default('false'),
   DB_SCHEMA: z.string().optional(),
 
   API_SIGNING_SECRET: z.string().min(1),
-  SCHEDULER_CONFIG_PATH: z.string().optional(),
 });
 
 type EnvSchemaType = z.infer<typeof EnvSchema>;
@@ -34,7 +34,7 @@ const env: z.infer<typeof EnvSchema> = {
   DB_SCHEMA: process.env.DB_SCHEMA,
 
   API_SIGNING_SECRET: process.env.API_SIGNING_SECRET,
-  SCHEDULER_CONFIG_PATH: process.env.SCHEDULER_CONFIG_PATH,
+  SCHEDULER_CONFIG_DIR: process.env.SCHEDULER_CONFIG_DIR,
 };
 
 EnvSchema.parse(env);

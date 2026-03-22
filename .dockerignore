@@ -1,0 +1,2 @@
+# Postgres volume data (often root-owned; breaks build context + must not ship in images)
+**/database/data

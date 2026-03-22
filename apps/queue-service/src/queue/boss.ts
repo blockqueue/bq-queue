@@ -20,6 +20,8 @@ const DEFAULT_RETENTION_DAYS = 14; // pg-boss v12 default for queue retention
 const DEFAULT_DELETE_AFTER_DAYS = 7;
 const DEFAULT_WARNING_RETENTION_DAYS = 30;
 
+const EMPTY_CONFIG: SchedulerConfig = { queues: {}, cron_jobs: [] };
+
 function getPgBossOptions(config: SchedulerConfig): PgBossConstructorOptions {
   const c = config.cleanup ?? {};
   return {
@@ -69,15 +71,29 @@ function getQueueOptions(
 }
 
 export async function startBoss(
-  config: SchedulerConfig,
+  configs: SchedulerConfig[],
 ): Promise<PgBossInstance> {
-  const boss = new PgBoss(getPgBossOptions(config));
+  const optionsConfig =
+    configs.find((c) => c.cleanup != null) ?? configs[0] ?? EMPTY_CONFIG;
+
+  const boss = new PgBoss(getPgBossOptions(optionsConfig));
   bossInstance = boss;
 
   boss.on('error', (err: Error) => logger.error({ err }, 'pg-boss error'));
 
   await boss.start();
 
+  for (const config of configs) {
+    await registerProjectOnBoss(boss, config);
+  }
+
+  return boss;
+}
+
+async function registerProjectOnBoss(
+  boss: PgBossInstance,
+  config: SchedulerConfig,
+): Promise<void> {
   const global = config.global ?? {};
 
   for (const [name, queueConfig] of Object.entries(config.queues)) {
@@ -104,8 +120,6 @@ export async function startBoss(
   }
 
   registerWorkers(boss, config, onDynamicJobComplete);
-
-  return boss;
 }
 
 export async function stopBoss(): Promise<void> {

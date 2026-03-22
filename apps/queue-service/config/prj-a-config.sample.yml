@@ -1,4 +1,4 @@
-# Queue Service – Sample configuration
+# Queue Service – Sample configuration for Project A
 # Copy this file to config.yml and set your endpoints and secrets.
 # Use ${ENV_VAR} in values to substitute from the environment (e.g. signature_secret).
 
@@ -23,7 +23,7 @@ global:
 # ------------------------------------------------------------------------------
 queues:
   # Webhooks: outbound delivery to third-party URLs. High throughput, time-sensitive.
-  WEBHOOK_DELIVERY:
+  PRJ_A_WEBHOOK_DELIVERY:
     endpoint: 'https://api.example.com/internal/webhooks/deliver'
     method: 'POST'
     signature_secret: ${WEBHOOK_SIGNING_SECRET}
@@ -34,7 +34,7 @@ queues:
     description: 'Outbound webhook delivery'
 
   # Report digest: generate and send periodic report summaries.
-  REPORT_DIGEST:
+  PRJ_A_REPORT_DIGEST:
     endpoint: 'https://api.example.com/internal/reports/digest'
     method: 'POST'
     signature_secret: ${REPORT_DIGEST_SIGNING_SECRET}
@@ -42,52 +42,25 @@ queues:
     wait_interval_after_success_seconds: 120 # 2 min between jobs
     description: 'Report digest generation and delivery'
 
-  # Post publishing: publish content to channels (e.g. social, CMS).
-  POST_PUBLISHING:
-    endpoint: 'https://api.example.com/internal/posts/publish'
-    method: 'POST'
-    signature_secret: ${POST_PUBLISHING_SIGNING_SECRET}
-    max_concurrent_jobs: 5
-    retryLimit: 3
-    description: 'Publish posts to configured channels'
-
-  # Email sending: transactional and bulk email.
-  EMAIL_DELIVERY:
-    endpoint: 'https://api.example.com/internal/email/send'
-    method: 'POST'
-    signature_secret: ${EMAIL_SIGNING_SECRET}
-    max_concurrent_jobs: 10
-    retryLimit: 5
-    description: 'Send transactional and campaign emails'
-
 # ------------------------------------------------------------------------------
 # Static cron jobs
 # These run on a fixed schedule. Each references a queue defined above.
 # When the cron fires, a job is enqueued and the queue’s endpoint is called with a signed payload.
-# Each "name" is the pg-boss schedule key; use unique names so multiple crons can share a queue.
 # ------------------------------------------------------------------------------
 cron_jobs:
   - name: 'daily-report-digest'
-    queue: 'REPORT_DIGEST'
+    queue: 'PRJ_A_REPORT_DIGEST'
     schedule: '0 8 * * *' # 08:00 every day (cron: min hour day month weekday)
     timezone: 'UTC'
     payload:
       type: 'daily_digest'
 
   - name: 'weekly-report-digest'
-    queue: 'REPORT_DIGEST'
+    queue: 'PRJ_A_REPORT_DIGEST'
     schedule: '0 9 * * 1' # 09:00 every Monday
     timezone: 'UTC'
     payload:
       type: 'weekly_digest'
-
-  - name: 'daily-email-digest'
-    queue: 'EMAIL_DELIVERY'
-    schedule: '0 7 * * *' # 07:00 every day
-    timezone: 'UTC'
-    payload:
-      type: 'digest'
-      channel: 'email'
 
 # ------------------------------------------------------------------------------
 # pg-boss retention and maintenance (optional overrides)
