@@ -5,13 +5,15 @@ services:
       - '5432:5432'
     env_file:
       - ./database/.env
+    volumes:
+      - ./docker/database/data:/var/lib/postgresql:delegated
     healthcheck:
       test: ['CMD', 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}']
       interval: 5s
       retries: 5
       timeout: 10s
 
-  queue-service-test:
+  bq-queue:
     image: blockqueue/bq-queue:latest # for testing the locally built image
     # image: ghcr.io/blockqueue/bq-queue:v0.0.1 # for testing the remote image build
     ports:
@@ -19,9 +21,9 @@ services:
     volumes:
       - ../apps/queue-service/config:/config
     env_file:
-      - ../apps/queue-service/.env.test
+      - ../apps/queue-service/.env
 
-  queue-service-ui-test:
+  bq-queue-ui:
     image: blockqueue/bq-queue-ui:latest # for testing the locally built image
     # image: ghcr.io/blockqueue/bq-queue-ui:v0.0.1 # for testing the remote image build
     ports:

@@ -54,7 +54,6 @@ export function registerOneOffJob(config: SchedulerConfig) {
       jobType: jobType.ONE_OFF,
       pgBossJobId: jobId,
       queue,
-      dynamicScheduleId: null,
     });
     res.status(202).json({ jobId });
   };

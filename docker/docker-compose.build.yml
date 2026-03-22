@@ -1,14 +1,14 @@
 # build prod versions of the queue service and dashboard for quick testing
 
 services:
-  queue-service-build:
+  bq-queue:
     build:
       context: ../
-      dockerfile: ./docker/queue-service/Dockerfile.prod
+      dockerfile: ./docker/bq-queue/Dockerfile.prod
     image: blockqueue/bq-queue:latest
 
-  queue-service-ui-build:
+  bq-queue-ui:
     build:
       context: ../
-      dockerfile: ./docker/dashboard/Dockerfile.prod
+      dockerfile: ./docker/dashboard/Dockerfile
     image: blockqueue/bq-queue-ui:latest

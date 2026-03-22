@@ -22,6 +22,7 @@
     "js-yaml": "^4.1.1",
     "pino": "^10.1.0",
     "postgres": "^3.4.8",
+    "pg-boss": "^12.14.0",
     "zod": "^4.1.12"
   },
   "devDependencies": {
@@ -33,7 +34,6 @@
     "@types/pg": "^8.16.0",
     "drizzle-kit": "^0.31.9",
     "nodemon": "^3.1.11",
-    "pg-boss": "^12.14.0",
     "tsx": "^4.20.6",
     "typescript": "^5.9.3",
     "vitest": "^3.2.4"
