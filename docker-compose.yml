@@ -1,8 +1,6 @@
 services:
   database:
     image: postgres:18
-    ports:
-      - '5432:5432'
     env_file:
       - ./docker/database/.env
     volumes:

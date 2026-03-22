@@ -4,7 +4,10 @@ import { verifyRequestSignature } from '../../src/middlewares/verifyRequestSigna
 import { verifySignature } from '../../src/utils/verifySignature';
 
 vi.mock('../../src/env', () => ({
-  default: { API_SIGNING_SECRET: 'test-secret' },
+  default: {
+    REQUEST_SIGNING_SECRET: 'test-secret',
+    SIGNATURE_HEADER: 'x-bq-queue-request-signature',
+  },
 }));
 
 vi.mock('../../src/utils/verifySignature', () => ({

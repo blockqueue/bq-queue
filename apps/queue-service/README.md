@@ -30,4 +30,4 @@ From this directory (`apps/queue-service`):
 
 ## Environment
 
-Set `POSTGRES_DATABASE_URL`, `API_SIGNING_SECRET`, `PORT` (3000–10000), and **`SCHEDULER_CONFIG_DIR`** (directory containing your scheduler YAML files). See the [root README environment section](../../README.md#environment-variables), [scheduler configuration](../../README.md#scheduler-configuration-yaml), and [how `cleanup` applies globally vs per file](../../README.md#cleanup-global-vs-per-project).
+Set `POSTGRES_DATABASE_URL`, `REQUEST_SIGNING_SECRET`, `PORT` (3000–10000), and **`SCHEDULER_CONFIG_DIR`** (directory containing your scheduler YAML files). See the [root README environment section](../../README.md#environment-variables), [scheduler configuration](../../README.md#scheduler-configuration-yaml), and [how `cleanup` applies globally vs per file](../../README.md#cleanup-global-vs-per-project).

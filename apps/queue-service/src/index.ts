@@ -1,10 +1,13 @@
 import { createApp } from './app';
 import { loadSchedulerConfigSegments, mergeQueuesForApi } from './config/load';
+import { runMigrations } from './db/migrate';
 import env from './env';
 import { startBoss, stopBoss } from './queue/boss';
 import { logger } from './utils/logger';
 
 async function main() {
+  await runMigrations();
+
   const segments = loadSchedulerConfigSegments();
   const configs = segments.map((s) => s.config);
 

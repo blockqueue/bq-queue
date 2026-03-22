@@ -98,7 +98,7 @@ From `apps/queue-service/`, copy env and add one or more scheduler YAML files un
 
 ```bash
 cd apps/queue-service
-# Create .env with at least POSTGRES_DATABASE_URL, API_SIGNING_SECRET, PORT (3000–10000),
+# Create .env with at least POSTGRES_DATABASE_URL, REQUEST_SIGNING_SECRET, PORT (3000–10000),
 # and SCHEDULER_CONFIG_DIR (path to the directory that holds your *.yml / *.yaml files)
 cp .env.example .env
 # Example: copy project samples into config/ and rename/edit (see Scheduler configuration below)
@@ -134,15 +134,14 @@ Use the signing flow in [Authenticating requests to the queue service](#authenti
 
 Loaded via `dotenv` from `.env` when present. All are validated at startup (`src/env.ts`).
 
-| Variable                | Required  | Description                                                                                                                                          |
-| ----------------------- | --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `POSTGRES_DATABASE_URL` | **Yes**   | PostgreSQL connection URL for pg-boss and app tables                                                                                                 |
-| `API_SIGNING_SECRET`    | **Yes**   | Shared secret for **incoming** requests to `/api/jobs/*` (HMAC signature)                                                                            |
-| `PORT`                  | **Yes\*** | HTTP port; must be between **3000 and 10000** (inclusive). Set explicitly if unset defaults break validation                                         |
-| `NODE_ENV`              | No        | `development` \| `production` \| `test` (default `development`)                                                                                      |
-| `POSTGRES_SSL`          | No        | If `true`, connects with TLS (`rejectUnauthorized: false` for dev-style setups)                                                                      |
-| `DB_SCHEMA`             | No        | PostgreSQL schema for app tables (default `bq_queue`). Migrations use this schema                                                                    |
-| `SCHEDULER_CONFIG_DIR`  | **Yes**   | Path to a **directory** whose `*.yml` / `*.yaml` files are loaded as scheduler config (see [Scheduler configuration](#scheduler-configuration-yaml)) |
+| Variable                 | Required  | Description                                                                                                                                          |
+| ------------------------ | --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POSTGRES_DATABASE_URL`  | **Yes**   | PostgreSQL connection URL for pg-boss and app tables                                                                                                 |
+| `REQUEST_SIGNING_SECRET` | **Yes**   | Shared secret for **incoming** requests to `/api/jobs/*` (HMAC signature)                                                                            |
+| `PORT`                   | **Yes\*** | HTTP port; must be between **3000 and 10000** (inclusive). Set explicitly if unset defaults break validation                                         |
+| `NODE_ENV`               | No        | `development` \| `production` \| `test` (default `development`)                                                                                      |
+| `POSTGRES_SSL`           | No        | If `true`, connects with TLS (`rejectUnauthorized: false` for dev-style setups)                                                                      |
+| `SCHEDULER_CONFIG_DIR`   | **Yes**   | Path to a **directory** whose `*.yml` / `*.yaml` files are loaded as scheduler config (see [Scheduler configuration](#scheduler-configuration-yaml)) |
 
 \*If `PORT` is missing, ensure your environment sets a valid port in range.
 
@@ -189,7 +188,7 @@ The service runs **one** [pg-boss](https://timgit.github.io/pg-boss/) instance f
 | Field                                      | Required | Description                                                                                       |
 | ------------------------------------------ | -------- | ------------------------------------------------------------------------------------------------- |
 | `endpoint`                                 | Yes      | URL the worker calls when a job runs                                                              |
-| `signature_secret`                         | Yes      | Secret used to sign **outbound** requests to `endpoint` (header `X-Signature`)                    |
+| `signature_secret`                         | Yes      | Secret used to sign **outbound** requests to `endpoint` (header `[env.SIGNATURE_HEADER]`)         |
 | `method`                                   | No       | HTTP method (default `POST`)                                                                      |
 | `max_concurrent_jobs`                      | No       | Concurrency for this queue (overrides `global.default_queue_concurrency` / `max_concurrent_jobs`) |
 | `retryLimit`, `retryDelay`, `retryBackoff` | No       | Retry behaviour for failed deliveries                                                             |
@@ -220,11 +219,11 @@ No signature required.
 
 ### `POST /api/jobs/one-off`
 
-Enqueue a single job immediately.
+Enqueue one or more jobs immediately. The body **must be a JSON array** (use a one-element array for a single job).
 
 **Headers:** `x-bq-queue-request-signature` (required), `Content-Type: application/json`
 
-**Body (JSON):**
+**Body (JSON):** a non-empty array of objects:
 
 | Field            | Type   | Required | Description                                                        |
 | ---------------- | ------ | -------- | ------------------------------------------------------------------ |
@@ -234,23 +233,23 @@ Enqueue a single job immediately.
 
 **Responses:**
 
-| Status | Meaning                           |
-| ------ | --------------------------------- |
-| `202`  | `{ "jobId": "<pg-boss job id>" }` |
-| `400`  | Validation or unknown `queue`     |
-| `401`  | Invalid or missing signature      |
-| `503`  | pg-boss unavailable               |
-| `500`  | Failed to enqueue                 |
+| Status | Meaning                                                                               |
+| ------ | ------------------------------------------------------------------------------------- |
+| `202`  | `{ "jobs": [ { "jobId": "<pg-boss job id>" }, ... ] }` (same order as body)           |
+| `400`  | Validation, empty array, or unknown `queue` (may include `index` of the failing item) |
+| `401`  | Invalid or missing signature                                                          |
+| `503`  | pg-boss unavailable                                                                   |
+| `500`  | Failed to enqueue (may include `index` of the failing item)                           |
 
 ---
 
 ### `POST /api/jobs/schedule`
 
-Schedule the next run from a cron expression (stored as a delayed job).
+Schedule the next run from a cron expression for one or more jobs (each stored as a delayed job). The body **must be a JSON array** (use a one-element array for a single job).
 
 **Headers:** same as one-off.
 
-**Body (JSON):**
+**Body (JSON):** a non-empty array of objects:
 
 | Field            | Type   | Required | Description                                                                          |
 | ---------------- | ------ | -------- | ------------------------------------------------------------------------------------ |
@@ -262,13 +261,13 @@ Schedule the next run from a cron expression (stored as a delayed job).
 
 **Responses:**
 
-| Status | Meaning                                      |
-| ------ | -------------------------------------------- |
-| `201`  | `{ "id": "<idempotencyKey>" }`               |
-| `400`  | Invalid body, unknown queue, or invalid cron |
-| `401`  | Signature                                    |
-| `503`  | pg-boss unavailable                          |
-| `500`  | Failed to schedule                           |
+| Status | Meaning                                                                         |
+| ------ | ------------------------------------------------------------------------------- |
+| `201`  | `{ "jobs": [ { "id": "<idempotencyKey>" }, ... ] }` (same order as body)        |
+| `400`  | Invalid body, empty array, unknown queue, or invalid cron (may include `index`) |
+| `401`  | Signature                                                                       |
+| `503`  | pg-boss unavailable                                                             |
+| `500`  | Failed to schedule (may include `index`)                                        |
 
 ---
 
@@ -312,14 +311,16 @@ To build the header in Node (same helpers as tests):
 ```ts
 import { createSignature } from './path/to/createSignature'; // or reimplement
 
-const body = JSON.stringify({
-  idempotencyKey: 'my-key',
-  queue: 'MY_QUEUE',
-  payload: {},
-});
+const body = JSON.stringify([
+  {
+    idempotencyKey: 'my-key',
+    queue: 'MY_QUEUE',
+    payload: {},
+  },
+]);
 const header = createSignature({
   payload: body,
-  secret: process.env.API_SIGNING_SECRET!,
+  secret: process.env.REQUEST_SIGNING_SECRET!,
 });
 // fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-bq-queue-request-signature': header }, body })
 ```
@@ -330,23 +331,25 @@ const header = createSignature({
 
 When a job runs, the worker POSTs (by default) to `queues.<name>.endpoint` with:
 
-| Header         | Value                                                                                 |
-| -------------- | ------------------------------------------------------------------------------------- |
-| `Content-Type` | `application/json`                                                                    |
-| `X-Signature`  | `t=...,v1=...` using **`signature_secret`** for that queue (not `API_SIGNING_SECRET`) |
+| Header                   | Value                                                                                     |
+| ------------------------ | ----------------------------------------------------------------------------------------- |
+| `Content-Type`           | `application/json`                                                                        |
+| `[env.SIGNATURE_HEADER]` | `t=...,v1=...` using **`signature_secret`** for that queue (not `REQUEST_SIGNING_SECRET`) |
 
 **Body:** JSON string of either:
 
 - `{ "timestamp": <unix>, "data": <payload> }` for object payloads, or
 - the raw payload encoding for non-object data
 
-Verify `X-Signature` the same way (HMAC over `timestamp + "." + body` with the queue’s `signature_secret`). Request timeout is **2 minutes**.
+Verify `[env.SIGNATURE_HEADER]` the same way (HMAC over `timestamp + "." + body` with the queue’s `signature_secret`). Request timeout is **2 minutes**.
+
+SIGNATURE_HEADER is the string you set in your env file.
 
 ---
 
 ## Idempotency
 
-- Rows are stored in PostgreSQL (`job_idempotency` in schema `DB_SCHEMA`, default `bq_queue`).
+- Rows are stored in PostgreSQL (`job_idempotency` in schema `bq_queue`).
 - **One-off:** `idempotencyKey` maps to the pg-boss job id; resubmitting replaces the previous job after cancel/delete of the old record.
 - **Schedule:** same key; dynamic schedules include `idempotencyKey` in the job payload; after success, dynamic cleanup can remove the row (see worker + boss integration).
 - **Delete:** removes the row and cancels the boss job when possible.
@@ -379,7 +382,7 @@ npm run db:generate:migration   # after editing schema
 npm run db:apply:migration    # apply migrations
 ```
 
-Set `POSTGRES_DATABASE_URL` (and optionally `DB_SCHEMA`). pg-boss creates its own schema/tables on first use.
+Set `POSTGRES_DATABASE_URL`. pg-boss creates its own schema/tables on first use.
 
 ---
 

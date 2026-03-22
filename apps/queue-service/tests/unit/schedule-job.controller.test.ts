@@ -58,13 +58,15 @@ describe('registerScheduleJob', () => {
     vi.spyOn(jobIdempotencyService, 'clearExistingJob').mockResolvedValue();
   });
 
-  it('returns 201 and id when body is valid', async () => {
-    const req = mockReq({
-      idempotencyKey: 'key-1',
-      queue: 'myqueue',
-      schedule: '0 * * * *',
-      payload: { x: 1 },
-    });
+  it('returns 201 and jobs when body is a valid array of one job', async () => {
+    const req = mockReq([
+      {
+        idempotencyKey: 'key-1',
+        queue: 'myqueue',
+        schedule: '0 * * * *',
+        payload: { x: 1 },
+      },
+    ]);
     const res = mockRes();
 
     await handler(req, res);
@@ -76,10 +78,12 @@ describe('registerScheduleJob', () => {
       expect.objectContaining({ startAfter: expect.any(Date) }),
     );
     expect(res.status).toHaveBeenCalledWith(201);
-    expect(res.json).toHaveBeenCalledWith({ id: 'key-1' });
+    expect(res.json).toHaveBeenCalledWith({
+      jobs: [{ id: 'key-1' }],
+    });
   });
 
-  it('returns 400 when body is invalid', async () => {
+  it('returns 400 when body is invalid (not array)', async () => {
     const req = mockReq({ idempotencyKey: 'key-1', queue: 'myqueue' });
     const res = mockRes();
 
@@ -91,12 +95,14 @@ describe('registerScheduleJob', () => {
     );
   });
 
-  it('returns 400 for unknown queue', async () => {
-    const req = mockReq({
-      idempotencyKey: 'key-1',
-      queue: 'unknown',
-      schedule: '0 * * * *',
-    });
+  it('returns 400 for unknown queue with index', async () => {
+    const req = mockReq([
+      {
+        idempotencyKey: 'key-1',
+        queue: 'unknown',
+        schedule: '0 * * * *',
+      },
+    ]);
     const res = mockRes();
 
     await handler(req, res);
@@ -105,16 +111,19 @@ describe('registerScheduleJob', () => {
     expect(res.json).toHaveBeenCalledWith({
       error: 'Unknown queue',
       queue: 'unknown',
+      index: 0,
     });
   });
 
   it('returns 503 when boss is null', async () => {
     vi.mocked(getBoss).mockReturnValue(null);
-    const req = mockReq({
-      idempotencyKey: 'key-1',
-      queue: 'myqueue',
-      schedule: '0 * * * *',
-    });
+    const req = mockReq([
+      {
+        idempotencyKey: 'key-1',
+        queue: 'myqueue',
+        schedule: '0 * * * *',
+      },
+    ]);
     const res = mockRes();
 
     await handler(req, res);
@@ -129,11 +138,13 @@ describe('registerScheduleJob', () => {
     vi.mocked(getNextCronRun).mockImplementation(() => {
       throw new Error('invalid');
     });
-    const req = mockReq({
-      idempotencyKey: 'key-1',
-      queue: 'myqueue',
-      schedule: 'invalid-cron',
-    });
+    const req = mockReq([
+      {
+        idempotencyKey: 'key-1',
+        queue: 'myqueue',
+        schedule: 'invalid-cron',
+      },
+    ]);
     const res = mockRes();
 
     await handler(req, res);
@@ -142,6 +153,7 @@ describe('registerScheduleJob', () => {
     expect(res.json).toHaveBeenCalledWith({
       error: 'Invalid cron expression',
       schedule: 'invalid-cron',
+      index: 0,
     });
   });
 
@@ -154,11 +166,13 @@ describe('registerScheduleJob', () => {
     vi.mocked(db.query.jobIdempotency.findFirst).mockResolvedValue(
       existing as never,
     );
-    const req = mockReq({
-      idempotencyKey: 'key-1',
-      queue: 'myqueue',
-      schedule: '0 * * * *',
-    });
+    const req = mockReq([
+      {
+        idempotencyKey: 'key-1',
+        queue: 'myqueue',
+        schedule: '0 * * * *',
+      },
+    ]);
     const res = mockRes();
 
     await handler(req, res);
@@ -171,11 +185,13 @@ describe('registerScheduleJob', () => {
 
   it('returns 500 when boss.send returns null', async () => {
     mockSend.mockResolvedValue(null);
-    const req = mockReq({
-      idempotencyKey: 'key-1',
-      queue: 'myqueue',
-      schedule: '0 * * * *',
-    });
+    const req = mockReq([
+      {
+        idempotencyKey: 'key-1',
+        queue: 'myqueue',
+        schedule: '0 * * * *',
+      },
+    ]);
     const res = mockRes();
 
     await handler(req, res);
@@ -183,6 +199,7 @@ describe('registerScheduleJob', () => {
     expect(res.status).toHaveBeenCalledWith(500);
     expect(res.json).toHaveBeenCalledWith({
       error: 'Failed to schedule job',
+      index: 0,
     });
   });
 });

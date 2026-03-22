@@ -1,3 +1,4 @@
+CREATE SCHEMA IF NOT EXISTS bq_queue;--> statement-breakpoint
 CREATE TYPE "bq_queue"."job_type" AS ENUM('one_off', 'dynamic');--> statement-breakpoint
 CREATE TABLE "bq_queue"."job_idempotency" (
 	"idempotency_key" text PRIMARY KEY NOT NULL,

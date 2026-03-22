@@ -66,12 +66,14 @@ describe('Integration: health and API wiring', () => {
     server = app.listen(0);
     const port = (server.address() as { port: number }).port;
 
-    const body = JSON.stringify({
-      idempotencyKey: 'key-1',
-      queue: 'testqueue',
-      payload: { x: 1 },
-    });
-    const secret = process.env.API_SIGNING_SECRET ?? 'test-signing-secret';
+    const body = JSON.stringify([
+      {
+        idempotencyKey: 'key-1',
+        queue: 'testqueue',
+        payload: { x: 1 },
+      },
+    ]);
+    const secret = process.env.REQUEST_SIGNING_SECRET ?? 'test-signing-secret';
     const signature = createSignature({ payload: body, secret });
 
     const res = await fetch(`http://127.0.0.1:${port}/api/jobs/one-off`, {
@@ -82,9 +84,9 @@ describe('Integration: health and API wiring', () => {
       },
       body,
     });
-    const data = (await res.json()) as { jobId?: string };
+    const data = (await res.json()) as { jobs?: { jobId: string }[] };
     expect(res.status).toBe(202);
-    expect(data).toEqual({ jobId: 'job-123' });
+    expect(data).toEqual({ jobs: [{ jobId: 'job-123' }] });
     expect(mockSend).toHaveBeenCalledWith(
       'testqueue',
       expect.objectContaining({ payload: { x: 1 } }),

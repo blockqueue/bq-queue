@@ -7,11 +7,13 @@ import { jobIdempotency, jobType } from '../db/schema';
 import { getBoss } from '../queue/boss';
 import { clearExistingJob } from '../services/job-idempotency.service';
 
-const OneOffBodySchema = z.object({
+const OneOffJobItemSchema = z.object({
   idempotencyKey: z.string().min(1),
   queue: z.string().min(1),
   payload: z.record(z.string(), z.unknown()).optional(),
 });
+
+const OneOffBodySchema = z.array(OneOffJobItemSchema).min(1);
 
 export function registerOneOffJob(config: SchedulerConfig) {
   return async (req: Request, res: Response) => {
@@ -24,10 +26,18 @@ export function registerOneOffJob(config: SchedulerConfig) {
       return;
     }
 
-    const { idempotencyKey, queue, payload } = parse.data;
-    if (!(queue in config.queues)) {
-      res.status(400).json({ error: 'Unknown queue', queue });
-      return;
+    const items = parse.data;
+
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i]!;
+      if (!(item.queue in config.queues)) {
+        res.status(400).json({
+          error: 'Unknown queue',
+          queue: item.queue,
+          index: i,
+        });
+        return;
+      }
     }
 
     const boss = getBoss();
@@ -36,25 +46,37 @@ export function registerOneOffJob(config: SchedulerConfig) {
       return;
     }
 
-    const existing = await db.query.jobIdempotency.findFirst({
-      where: eq(jobIdempotency.idempotencyKey, idempotencyKey),
-    });
-    if (existing) {
-      await clearExistingJob(existing);
+    const jobs: { jobId: string }[] = [];
+
+    for (let i = 0; i < items.length; i++) {
+      const { idempotencyKey, queue, payload } = items[i]!;
+
+      const existing = await db.query.jobIdempotency.findFirst({
+        where: eq(jobIdempotency.idempotencyKey, idempotencyKey),
+      });
+      if (existing) {
+        await clearExistingJob(existing);
+      }
+
+      const jobId = await boss.send(queue, { payload: payload ?? {} });
+      if (!jobId) {
+        res.status(500).json({
+          error: 'Failed to enqueue job',
+          index: i,
+        });
+        return;
+      }
+
+      await db.insert(jobIdempotency).values({
+        idempotencyKey,
+        jobType: jobType.ONE_OFF,
+        pgBossJobId: jobId,
+        queue,
+      });
+
+      jobs.push({ jobId });
     }
 
-    const jobId = await boss.send(queue, { payload: payload ?? {} });
-    if (!jobId) {
-      res.status(500).json({ error: 'Failed to enqueue job' });
-      return;
-    }
-
-    await db.insert(jobIdempotency).values({
-      idempotencyKey,
-      jobType: jobType.ONE_OFF,
-      pgBossJobId: jobId,
-      queue,
-    });
-    res.status(202).json({ jobId });
+    res.status(202).json({ jobs });
   };
 }
