@@ -16,7 +16,9 @@ export function verifyRequestSignature() {
         : Buffer.isBuffer(rawBody)
           ? rawBody.toString('utf8')
           : JSON.stringify(rawBody);
-    const signature = req.headers[env.SIGNATURE_HEADER] as string | undefined;
+
+    const signatureHeaderName = env.SIGNATURE_HEADER.toLowerCase();
+    const signature = req.headers[signatureHeaderName] as string | undefined;
     const valid = verifySignature({
       payload,
       signature: signature ?? null,

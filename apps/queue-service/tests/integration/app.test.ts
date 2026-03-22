@@ -2,6 +2,7 @@ import type { Server } from 'node:http';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createApp } from '../../src/app';
 import type { SchedulerConfig } from '../../src/config/schema';
+import env from '../../src/env';
 import { getBoss } from '../../src/queue/boss';
 import { createSignature } from '../../src/utils/createSignature';
 
@@ -73,14 +74,16 @@ describe('Integration: health and API wiring', () => {
         payload: { x: 1 },
       },
     ]);
-    const secret = process.env.REQUEST_SIGNING_SECRET ?? 'test-signing-secret';
-    const signature = createSignature({ payload: body, secret });
+    const signature = createSignature({
+      payload: body,
+      secret: env.REQUEST_SIGNING_SECRET,
+    });
 
     const res = await fetch(`http://127.0.0.1:${port}/api/jobs/one-off`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-bq-queue-request-signature': signature,
+        [env.SIGNATURE_HEADER]: signature,
       },
       body,
     });
