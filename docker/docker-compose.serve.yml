@@ -14,8 +14,8 @@ services:
       timeout: 10s
 
   bq-queue:
-    image: blockqueue/bq-queue:latest # for testing the locally built image
-    # image: ghcr.io/blockqueue/bq-queue:v0.0.1 # for testing the remote image build
+    # image: blockqueue/bq-queue:latest # for testing the locally built image
+    image: ghcr.io/blockqueue/bq-queue:v0.0.2 # for testing the remote image build
     ports:
       - '9000:9000'
     volumes:
