@@ -52,6 +52,8 @@ COPY --chown=nonroot:nonroot --from=installer /app/node_modules /app/node_module
 COPY --chown=nonroot:nonroot --from=installer /app/apps/queue-service/package.json ./package.json
 COPY --chown=nonroot:nonroot --from=installer /app/apps/queue-service/node_modules ./node_modules
 COPY --chown=nonroot:nonroot --from=installer /app/apps/queue-service/dist ./dist
+# Drizzle migrations are static files required at runtime (meta/_journal.json).
+COPY --chown=nonroot:nonroot --from=installer /app/apps/queue-service/src/db/migrations ./dist/db/migrations
 COPY --chown=nonroot:nonroot --from=installer /app/apps/queue-service/config ./config
 
 EXPOSE 3000
