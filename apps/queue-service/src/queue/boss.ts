@@ -24,8 +24,10 @@ const EMPTY_CONFIG: SchedulerConfig = { queues: {}, cron_jobs: [] };
 
 function getPgBossOptions(config: SchedulerConfig): PgBossConstructorOptions {
   const c = config.cleanup ?? {};
+  const postgresSSL = env.POSTGRES_SSL === 'true';
   return {
     connectionString: env.POSTGRES_DATABASE_URL,
+    ...(postgresSSL ? { ssl: { rejectUnauthorized: false } } : {}),
     maintenanceIntervalSeconds:
       c.maintenance_interval_seconds ?? DEFAULT_MAINTENANCE_INTERVAL_SECONDS,
     persistWarnings: true,
