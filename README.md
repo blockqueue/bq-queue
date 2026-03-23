@@ -384,6 +384,22 @@ npm run db:apply:migration    # apply migrations
 
 Set `POSTGRES_DATABASE_URL`. pg-boss creates its own schema/tables on first use.
 
+### Required database permissions (production / cron)
+
+When the service starts, it runs Drizzle migrations against the database in `POSTGRES_DATABASE_URL`.
+
+If your DB role is restricted, it must have enough privileges to create objects in the target app schema (this repo uses `bq_queue`):
+
+```sql
+-- Replace names with your own.
+-- "app_database" is the database name from POSTGRES_DATABASE_URL.
+-- "app_user" is the database user from POSTGRES_DATABASE_URL.
+GRANT CONNECT ON DATABASE app_database TO "app_user";
+GRANT CREATE ON DATABASE app_database TO "app_user";
+```
+
+Note: the service will fail fast on startup if migrations cannot run, so apply these grants before deploying the container/cron.
+
 ---
 
 ## Docker
