@@ -2,7 +2,7 @@ import 'dotenv/config';
 import { z } from 'zod';
 
 const EnvSchema = z.object({
-  PORT: z.coerce.number().min(3000).max(10000).transform(String),
+  PORT: z.coerce.number().min(3000).max(65535).transform(String),
   NODE_ENV: z
     .enum(['development', 'production', 'test'])
     .default('development'),
