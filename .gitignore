@@ -38,3 +38,7 @@ yarn-error.log*
 *.pem
 
 apps/queue-service/config/config.yml
+
+docker/database/data/
+
+.react-router
