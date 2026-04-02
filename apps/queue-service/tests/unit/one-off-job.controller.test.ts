@@ -42,12 +42,15 @@ describe('registerOneOffJob', () => {
   const handler = registerOneOffJob(config);
 
   let mockSend: ReturnType<typeof vi.fn>;
+  let mockSendAfter: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
     vi.clearAllMocks();
     mockSend = vi.fn().mockResolvedValue('job-id-123');
+    mockSendAfter = vi.fn().mockResolvedValue('job-id-delayed');
     vi.mocked(getBoss).mockReturnValue({
       send: mockSend,
+      sendAfter: mockSendAfter,
     } as unknown as ReturnType<typeof getBoss>);
     vi.mocked(db.query.jobIdempotency.findFirst).mockResolvedValue(undefined);
     vi.mocked(db.insert).mockReturnValue({
@@ -76,6 +79,58 @@ describe('registerOneOffJob', () => {
       payload: { foo: 'bar' },
     });
     expect(db.insert).toHaveBeenCalled();
+  });
+
+  it('uses sendAfter when runAt is in the future', async () => {
+    vi.spyOn(Date, 'now').mockReturnValue(
+      new Date('2026-01-01T00:00:00.000Z').getTime(),
+    );
+    const req = mockReq([
+      {
+        idempotencyKey: 'key-1',
+        queue: 'myqueue',
+        payload: { foo: 'bar' },
+        runAt: '2026-01-01T00:00:10.000Z',
+      },
+    ]);
+    const res = mockRes();
+
+    await handler(req, res);
+
+    expect(mockSendAfter).toHaveBeenCalledWith(
+      'myqueue',
+      { payload: { foo: 'bar' } },
+      null,
+      new Date('2026-01-01T00:00:10.000Z'),
+    );
+    expect(mockSend).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(202);
+    expect(res.json).toHaveBeenCalledWith({
+      jobs: [{ jobId: 'job-id-delayed' }],
+    });
+  });
+
+  it('uses send when runAt is in the past', async () => {
+    vi.spyOn(Date, 'now').mockReturnValue(
+      new Date('2026-01-01T00:00:20.000Z').getTime(),
+    );
+    const req = mockReq([
+      {
+        idempotencyKey: 'key-1',
+        queue: 'myqueue',
+        payload: { foo: 'bar' },
+        runAt: '2026-01-01T00:00:10.000Z',
+      },
+    ]);
+    const res = mockRes();
+
+    await handler(req, res);
+
+    expect(mockSend).toHaveBeenCalledWith('myqueue', {
+      payload: { foo: 'bar' },
+    });
+    expect(mockSendAfter).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(202);
   });
 
   it('returns 202 with multiple jobs in order', async () => {

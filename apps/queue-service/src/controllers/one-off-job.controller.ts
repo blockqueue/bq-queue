@@ -11,6 +11,8 @@ const OneOffJobItemSchema = z.object({
   idempotencyKey: z.string().min(1),
   queue: z.string().min(1),
   payload: z.record(z.string(), z.unknown()).optional(),
+  // ISO-8601 datetime with timezone (e.g. "2026-03-23T14:30:00Z" or "...-04:00")
+  runAt: z.string().datetime({ offset: true }).optional(),
 });
 
 const OneOffBodySchema = z.array(OneOffJobItemSchema).min(1);
@@ -49,7 +51,7 @@ export function registerOneOffJob(config: SchedulerConfig) {
     const jobs: { jobId: string }[] = [];
 
     for (let i = 0; i < items.length; i++) {
-      const { idempotencyKey, queue, payload } = items[i]!;
+      const { idempotencyKey, queue, payload, runAt } = items[i]!;
 
       const existing = await db.query.jobIdempotency.findFirst({
         where: eq(jobIdempotency.idempotencyKey, idempotencyKey),
@@ -58,7 +60,21 @@ export function registerOneOffJob(config: SchedulerConfig) {
         await clearExistingJob(existing);
       }
 
-      const jobId = await boss.send(queue, { payload: payload ?? {} });
+      const requestedRunAt = runAt ? new Date(runAt) : null;
+      const shouldDelay =
+        requestedRunAt !== null && requestedRunAt.getTime() > Date.now();
+
+      let jobId: string | null | undefined;
+      if (shouldDelay) {
+        jobId = await boss.sendAfter(
+          queue,
+          { payload: payload ?? {} },
+          null,
+          requestedRunAt!,
+        );
+      } else {
+        jobId = await boss.send(queue, { payload: payload ?? {} });
+      }
       if (!jobId) {
         res.status(500).json({
           error: 'Failed to enqueue job',
