@@ -11,8 +11,12 @@ const EnvSchema = z.object({
 
   PGBOSS_SCHEMA: z.string().optional(),
 
-  PGBOSS_DASHBOARD_AUTH_USERNAME: z.string().optional(),
-  PGBOSS_DASHBOARD_AUTH_PASSWORD: z.string().optional(),
+  PGBOSS_DASHBOARD_JWT_SECRET: z.string().optional(),
+  AUTH_SCHEMA: z.string().optional(),
+  AUTH_REGISTRATION_API_KEY: z.string().optional(),
+  AUTH_REGISTRATION_BULK_MAX_SIZE: z.string().optional(),
+  AUTH_REGISTRATION_RATE_LIMIT_MAX_REQUESTS: z.string().optional(),
+  AUTH_REGISTRATION_RATE_LIMIT_WINDOW_MS: z.string().optional(),
 });
 
 type EnvSchemaType = z.infer<typeof EnvSchema>;
@@ -33,8 +37,15 @@ const env: EnvSchemaType = {
 
   PGBOSS_SCHEMA: process.env.PGBOSS_SCHEMA ?? 'pgboss',
 
-  PGBOSS_DASHBOARD_AUTH_USERNAME: process.env.PGBOSS_DASHBOARD_AUTH_USERNAME,
-  PGBOSS_DASHBOARD_AUTH_PASSWORD: process.env.PGBOSS_DASHBOARD_AUTH_PASSWORD,
+  PGBOSS_DASHBOARD_JWT_SECRET: process.env.PGBOSS_DASHBOARD_JWT_SECRET,
+  AUTH_SCHEMA: process.env.AUTH_SCHEMA ?? 'auth',
+  AUTH_REGISTRATION_API_KEY: process.env.AUTH_REGISTRATION_API_KEY,
+  AUTH_REGISTRATION_BULK_MAX_SIZE:
+    process.env.AUTH_REGISTRATION_BULK_MAX_SIZE ?? '100',
+  AUTH_REGISTRATION_RATE_LIMIT_MAX_REQUESTS:
+    process.env.AUTH_REGISTRATION_RATE_LIMIT_MAX_REQUESTS ?? '10',
+  AUTH_REGISTRATION_RATE_LIMIT_WINDOW_MS:
+    process.env.AUTH_REGISTRATION_RATE_LIMIT_WINDOW_MS ?? '60000',
 };
 
 EnvSchema.parse(env);
