@@ -25,7 +25,7 @@ declare global {
 }
 /* eslint-enable @typescript-eslint/no-namespace, @typescript-eslint/no-empty-object-type */
 
-const env: z.infer<typeof EnvSchema> = {
+const env: EnvSchemaType = {
   PORT: Number(process.env.PORT).toString(),
   NODE_ENV: process.env.NODE_ENV || 'development',
 
