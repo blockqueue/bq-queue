@@ -2,6 +2,7 @@ import type { Server } from 'node:http';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createApp } from '../../src/app';
 import type { SchedulerConfig } from '../../src/config/schema';
+import env from '../../src/env';
 import { getBoss } from '../../src/queue/boss';
 import { createSignature } from '../../src/utils/createSignature';
 
@@ -66,25 +67,29 @@ describe('Integration: health and API wiring', () => {
     server = app.listen(0);
     const port = (server.address() as { port: number }).port;
 
-    const body = JSON.stringify({
-      idempotencyKey: 'key-1',
-      queue: 'testqueue',
-      payload: { x: 1 },
+    const body = JSON.stringify([
+      {
+        idempotencyKey: 'key-1',
+        queue: 'testqueue',
+        payload: { x: 1 },
+      },
+    ]);
+    const signature = createSignature({
+      payload: body,
+      secret: env.REQUEST_SIGNING_SECRET,
     });
-    const secret = process.env.API_SIGNING_SECRET ?? 'test-signing-secret';
-    const signature = createSignature({ payload: body, secret });
 
     const res = await fetch(`http://127.0.0.1:${port}/api/jobs/one-off`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-bq-queue-request-signature': signature,
+        [env.SIGNATURE_HEADER]: signature,
       },
       body,
     });
-    const data = (await res.json()) as { jobId?: string };
+    const data = (await res.json()) as { jobs?: { jobId: string }[] };
     expect(res.status).toBe(202);
-    expect(data).toEqual({ jobId: 'job-123' });
+    expect(data).toEqual({ jobs: [{ jobId: 'job-123' }] });
     expect(mockSend).toHaveBeenCalledWith(
       'testqueue',
       expect.objectContaining({ payload: { x: 1 } }),

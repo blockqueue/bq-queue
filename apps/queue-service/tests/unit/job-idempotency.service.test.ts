@@ -21,7 +21,6 @@ const mockRow = (
     jobType: 'one_off',
     pgBossJobId: 'pg-job-123',
     queue: 'my-queue',
-    dynamicScheduleId: null,
     createdAt: new Date(),
     ...overrides,
   }) as JobIdempotencyRow;

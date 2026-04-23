@@ -1,4 +1,5 @@
 import type { QueueConfig, SchedulerConfig } from '../config/schema';
+import env from '../env';
 import { createSignature } from '../utils/createSignature';
 import { logger } from '../utils/logger';
 import type { PgBossInstance } from './boss';
@@ -30,7 +31,7 @@ async function runOneJob(
     method: queueConfig.method ?? 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'X-Signature': signature,
+      [env.SIGNATURE_HEADER]: signature,
     },
     body,
     signal: controller.signal,

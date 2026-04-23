@@ -4,11 +4,9 @@ import { logger } from '../utils/logger';
 import { DB_SCHEMA } from './constants';
 import { createDatabaseClient } from './index';
 
-const __dirname = path.dirname(__filename);
 const migrationsFolder = path.join(__dirname, 'migrations');
 
-(async () => {
-  // Create database client with migration URL (bypasses RLS)
+export async function runMigrations(): Promise<void> {
   const db = createDatabaseClient({ max: 1 });
 
   try {
@@ -22,8 +20,19 @@ const migrationsFolder = path.join(__dirname, 'migrations');
     logger.info('Migrations complete.');
   } catch (error) {
     logger.error({ error }, '❌ Public schema migration failed');
-    process.exit(1);
+    throw error;
   } finally {
     await db.$client.end();
   }
-})();
+}
+
+function isMainModule(): boolean {
+  return require.main === module;
+}
+
+if (isMainModule()) {
+  runMigrations().catch((err) => {
+    logger.error({ err }, 'Migration failed');
+    process.exit(1);
+  });
+}

@@ -7,13 +7,15 @@ import { jobIdempotency, jobType } from '../db/schema';
 import { getBoss, getNextCronRun } from '../queue/boss';
 import { clearExistingJob } from '../services/job-idempotency.service';
 
-const ScheduleBodySchema = z.object({
+const ScheduleJobItemSchema = z.object({
   idempotencyKey: z.string().min(1),
   queue: z.string().min(1),
   schedule: z.string().min(1),
   timezone: z.string().optional(),
   payload: z.record(z.string(), z.unknown()).optional(),
 });
+
+const ScheduleBodySchema = z.array(ScheduleJobItemSchema).min(1);
 
 export function registerScheduleJob(config: SchedulerConfig) {
   return async (req: Request, res: Response) => {
@@ -25,17 +27,34 @@ export function registerScheduleJob(config: SchedulerConfig) {
       return;
     }
 
-    const {
-      idempotencyKey,
-      queue,
-      schedule,
-      timezone = 'UTC',
-      payload,
-    } = parse.data;
+    const items = parse.data;
 
-    if (!(queue in config.queues)) {
-      res.status(400).json({ error: 'Unknown queue', queue });
-      return;
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i]!;
+      if (!(item.queue in config.queues)) {
+        res.status(400).json({
+          error: 'Unknown queue',
+          queue: item.queue,
+          index: i,
+        });
+        return;
+      }
+    }
+
+    const nextRuns: Date[] = [];
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i]!;
+      const timezone = item.timezone ?? 'UTC';
+      try {
+        nextRuns.push(getNextCronRun(item.schedule, timezone));
+      } catch {
+        res.status(400).json({
+          error: 'Invalid cron expression',
+          schedule: item.schedule,
+          index: i,
+        });
+        return;
+      }
     }
 
     const boss = getBoss();
@@ -44,35 +63,41 @@ export function registerScheduleJob(config: SchedulerConfig) {
       return;
     }
 
-    const existingSchedule = await db.query.jobIdempotency.findFirst({
-      where: eq(jobIdempotency.idempotencyKey, idempotencyKey),
-    });
-    if (existingSchedule) {
-      await clearExistingJob(existingSchedule);
+    const jobs: { id: string }[] = [];
+
+    for (let i = 0; i < items.length; i++) {
+      const { idempotencyKey, queue, payload } = items[i]!;
+      const nextRun = nextRuns[i]!;
+
+      const existingSchedule = await db.query.jobIdempotency.findFirst({
+        where: eq(jobIdempotency.idempotencyKey, idempotencyKey),
+      });
+      if (existingSchedule) {
+        await clearExistingJob(existingSchedule);
+      }
+
+      const jobPayload = { ...(payload ?? {}), idempotencyKey };
+      const jobId = await boss.send(queue, jobPayload, {
+        startAfter: nextRun,
+      });
+      if (!jobId) {
+        res.status(500).json({
+          error: 'Failed to schedule job',
+          index: i,
+        });
+        return;
+      }
+
+      await db.insert(jobIdempotency).values({
+        idempotencyKey,
+        jobType: jobType.DYNAMIC,
+        pgBossJobId: jobId,
+        queue,
+      });
+
+      jobs.push({ id: idempotencyKey });
     }
 
-    let nextRun: Date;
-    try {
-      nextRun = getNextCronRun(schedule, timezone);
-    } catch {
-      res.status(400).json({ error: 'Invalid cron expression', schedule });
-      return;
-    }
-
-    const jobPayload = { ...(payload ?? {}), idempotencyKey };
-    const jobId = await boss.send(queue, jobPayload, { startAfter: nextRun });
-    if (!jobId) {
-      res.status(500).json({ error: 'Failed to schedule job' });
-      return;
-    }
-
-    await db.insert(jobIdempotency).values({
-      idempotencyKey,
-      jobType: jobType.DYNAMIC,
-      pgBossJobId: jobId,
-      queue,
-    });
-
-    res.status(201).json({ id: idempotencyKey });
+    res.status(201).json({ jobs });
   };
 }

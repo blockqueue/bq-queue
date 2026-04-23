@@ -5,5 +5,3 @@ BEGIN
     END IF;
 END
 $$;
-
-CREATE SCHEMA IF NOT EXISTS bq_queue;

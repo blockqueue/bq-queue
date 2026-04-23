@@ -11,5 +11,8 @@ process.env.NODE_ENV = process.env.NODE_ENV ?? 'test';
 process.env.PORT = process.env.PORT ?? '3000';
 process.env.POSTGRES_DATABASE_URL =
   process.env.POSTGRES_DATABASE_URL ?? 'postgres://localhost:5432/test';
-process.env.API_SIGNING_SECRET =
-  process.env.API_SIGNING_SECRET ?? 'test-signing-secret';
+process.env.POSTGRES_SSL = process.env.POSTGRES_SSL ?? 'false';
+process.env.SCHEDULER_CONFIG_DIR =
+  process.env.SCHEDULER_CONFIG_DIR ?? './config';
+process.env.REQUEST_SIGNING_SECRET =
+  process.env.REQUEST_SIGNING_SECRET ?? 'test-signing-secret';

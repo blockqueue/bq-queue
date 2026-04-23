@@ -1,0 +1,62 @@
+# Production image for apps/queue-service — Express + pg-boss (not Hono).
+# Build context: repository root (see .github/workflows/docker-publish.yml).
+
+## Base — slim Debian for turbo prune + npm ci + tsc
+FROM node:24-slim AS base
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends ca-certificates && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+## Prune — only workspaces needed for queue-service
+FROM base AS prune
+WORKDIR /app
+COPY . .
+# Align with repo packageManager / turbo 2.x
+RUN npm install -g turbo@2
+RUN turbo prune queue-service --docker
+
+## Build — install, compile TypeScript, drop devDependencies
+FROM base AS installer
+WORKDIR /app
+RUN corepack disable
+
+COPY --from=prune /app/out/full/ .
+COPY --from=prune /app/out/json/package-lock.json .
+
+ENV SKIP_PREPARE=true
+
+RUN npm install --legacy-peer-deps
+RUN npm run build -- --filter=queue-service
+RUN npm prune --omit=dev
+RUN npm cache clean --force
+# Ensure workspace-local node_modules path exists for COPY in runner (may be empty or populated by npm)
+RUN mkdir -p apps/queue-service/node_modules
+
+## Run — distroless Node (Express is plain Node; no separate runtime)
+FROM gcr.io/distroless/nodejs24-debian13:nonroot AS runner
+
+# loadSchedulerConfig() resolves config relative to process.cwd()
+WORKDIR /app/apps/queue-service
+
+ENV NODE_ENV=production
+# Must be 3000–10000 per apps/queue-service/src/env.ts
+ENV PORT=3000
+
+# Root workspace (hoisted deps + lockfile)
+COPY --chown=nonroot:nonroot --from=installer /app/package.json /app/package.json
+COPY --chown=nonroot:nonroot --from=installer /app/package-lock.json /app/package-lock.json
+COPY --chown=nonroot:nonroot --from=installer /app/node_modules /app/node_modules
+
+# App workspace: package.json, nested node_modules (bins / non-hoisted), build output, config
+COPY --chown=nonroot:nonroot --from=installer /app/apps/queue-service/package.json ./package.json
+COPY --chown=nonroot:nonroot --from=installer /app/apps/queue-service/node_modules ./node_modules
+COPY --chown=nonroot:nonroot --from=installer /app/apps/queue-service/dist ./dist
+# Drizzle migrations are static files required at runtime (meta/_journal.json).
+COPY --chown=nonroot:nonroot --from=installer /app/apps/queue-service/src/db/migrations ./dist/db/migrations
+COPY --chown=nonroot:nonroot --from=installer /app/apps/queue-service/config ./config
+
+EXPOSE 3000
+
+# Distroless Node image: CMD is the script path (resolved from WORKDIR)
+CMD ["dist/index.js"]

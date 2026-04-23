@@ -42,12 +42,15 @@ describe('registerOneOffJob', () => {
   const handler = registerOneOffJob(config);
 
   let mockSend: ReturnType<typeof vi.fn>;
+  let mockSendAfter: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
     vi.clearAllMocks();
     mockSend = vi.fn().mockResolvedValue('job-id-123');
+    mockSendAfter = vi.fn().mockResolvedValue('job-id-delayed');
     vi.mocked(getBoss).mockReturnValue({
       send: mockSend,
+      sendAfter: mockSendAfter,
     } as unknown as ReturnType<typeof getBoss>);
     vi.mocked(db.query.jobIdempotency.findFirst).mockResolvedValue(undefined);
     vi.mocked(db.insert).mockReturnValue({
@@ -56,26 +59,102 @@ describe('registerOneOffJob', () => {
     vi.spyOn(jobIdempotencyService, 'clearExistingJob').mockResolvedValue();
   });
 
-  it('returns 202 and jobId when body is valid and queue exists', async () => {
-    const req = mockReq({
-      idempotencyKey: 'key-1',
-      queue: 'myqueue',
-      payload: { foo: 'bar' },
-    });
+  it('returns 202 and jobs when body is a valid array of one job', async () => {
+    const req = mockReq([
+      {
+        idempotencyKey: 'key-1',
+        queue: 'myqueue',
+        payload: { foo: 'bar' },
+      },
+    ]);
     const res = mockRes();
 
     await handler(req, res);
 
     expect(res.status).toHaveBeenCalledWith(202);
-    expect(res.json).toHaveBeenCalledWith({ jobId: 'job-id-123' });
+    expect(res.json).toHaveBeenCalledWith({
+      jobs: [{ jobId: 'job-id-123' }],
+    });
     expect(mockSend).toHaveBeenCalledWith('myqueue', {
       payload: { foo: 'bar' },
     });
     expect(db.insert).toHaveBeenCalled();
   });
 
-  it('returns 400 when body is invalid', async () => {
-    const req = mockReq({ idempotencyKey: '', queue: 'myqueue' });
+  it('uses sendAfter when runAt is in the future', async () => {
+    vi.spyOn(Date, 'now').mockReturnValue(
+      new Date('2026-01-01T00:00:00.000Z').getTime(),
+    );
+    const req = mockReq([
+      {
+        idempotencyKey: 'key-1',
+        queue: 'myqueue',
+        payload: { foo: 'bar' },
+        runAt: '2026-01-01T00:00:10.000Z',
+      },
+    ]);
+    const res = mockRes();
+
+    await handler(req, res);
+
+    expect(mockSendAfter).toHaveBeenCalledWith(
+      'myqueue',
+      { payload: { foo: 'bar' } },
+      null,
+      new Date('2026-01-01T00:00:10.000Z'),
+    );
+    expect(mockSend).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(202);
+    expect(res.json).toHaveBeenCalledWith({
+      jobs: [{ jobId: 'job-id-delayed' }],
+    });
+  });
+
+  it('uses send when runAt is in the past', async () => {
+    vi.spyOn(Date, 'now').mockReturnValue(
+      new Date('2026-01-01T00:00:20.000Z').getTime(),
+    );
+    const req = mockReq([
+      {
+        idempotencyKey: 'key-1',
+        queue: 'myqueue',
+        payload: { foo: 'bar' },
+        runAt: '2026-01-01T00:00:10.000Z',
+      },
+    ]);
+    const res = mockRes();
+
+    await handler(req, res);
+
+    expect(mockSend).toHaveBeenCalledWith('myqueue', {
+      payload: { foo: 'bar' },
+    });
+    expect(mockSendAfter).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(202);
+  });
+
+  it('returns 202 with multiple jobs in order', async () => {
+    mockSend.mockResolvedValueOnce('job-a').mockResolvedValueOnce('job-b');
+    const req = mockReq([
+      { idempotencyKey: 'k1', queue: 'myqueue', payload: {} },
+      { idempotencyKey: 'k2', queue: 'myqueue' },
+    ]);
+    const res = mockRes();
+
+    await handler(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(202);
+    expect(res.json).toHaveBeenCalledWith({
+      jobs: [{ jobId: 'job-a' }, { jobId: 'job-b' }],
+    });
+    expect(mockSend).toHaveBeenCalledTimes(2);
+  });
+
+  it('returns 400 when body is not a non-empty array', async () => {
+    const req = mockReq({
+      idempotencyKey: '',
+      queue: 'myqueue',
+    });
     const res = mockRes();
 
     await handler(req, res);
@@ -86,11 +165,22 @@ describe('registerOneOffJob', () => {
     );
   });
 
-  it('returns 400 for unknown queue', async () => {
-    const req = mockReq({
-      idempotencyKey: 'key-1',
-      queue: 'unknown-queue',
-    });
+  it('returns 400 for empty array', async () => {
+    const req = mockReq([]);
+    const res = mockRes();
+
+    await handler(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+  });
+
+  it('returns 400 for unknown queue with index', async () => {
+    const req = mockReq([
+      {
+        idempotencyKey: 'key-1',
+        queue: 'unknown-queue',
+      },
+    ]);
     const res = mockRes();
 
     await handler(req, res);
@@ -99,12 +189,13 @@ describe('registerOneOffJob', () => {
     expect(res.json).toHaveBeenCalledWith({
       error: 'Unknown queue',
       queue: 'unknown-queue',
+      index: 0,
     });
   });
 
   it('returns 503 when boss is null', async () => {
     vi.mocked(getBoss).mockReturnValue(null);
-    const req = mockReq({ idempotencyKey: 'key-1', queue: 'myqueue' });
+    const req = mockReq([{ idempotencyKey: 'key-1', queue: 'myqueue' }]);
     const res = mockRes();
 
     await handler(req, res);
@@ -124,7 +215,7 @@ describe('registerOneOffJob', () => {
     vi.mocked(db.query.jobIdempotency.findFirst).mockResolvedValue(
       existing as never,
     );
-    const req = mockReq({ idempotencyKey: 'key-1', queue: 'myqueue' });
+    const req = mockReq([{ idempotencyKey: 'key-1', queue: 'myqueue' }]);
     const res = mockRes();
 
     await handler(req, res);
@@ -139,7 +230,7 @@ describe('registerOneOffJob', () => {
     vi.mocked(getBoss).mockReturnValue({
       send: vi.fn().mockResolvedValue(null),
     } as unknown as ReturnType<typeof getBoss>);
-    const req = mockReq({ idempotencyKey: 'key-1', queue: 'myqueue' });
+    const req = mockReq([{ idempotencyKey: 'key-1', queue: 'myqueue' }]);
     const res = mockRes();
 
     await handler(req, res);
@@ -147,6 +238,7 @@ describe('registerOneOffJob', () => {
     expect(res.status).toHaveBeenCalledWith(500);
     expect(res.json).toHaveBeenCalledWith({
       error: 'Failed to enqueue job',
+      index: 0,
     });
   });
 });
