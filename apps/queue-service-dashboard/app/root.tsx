@@ -9,51 +9,9 @@ import {
 
 import type { Route } from './+types/root';
 
-import { Breadcrumbs } from '~/components/breadcrumbs';
 import { LoadingBar } from '~/components/loading-bar';
-import { AppSidebar } from '~/components/sidebar';
 import { ThemeProvider } from '~/components/theme-provider';
-import {
-  SidebarProvider,
-  SidebarTrigger,
-  useSidebar,
-} from '~/components/ui/sidebar';
-import { cn } from '~/lib/utils';
 import './app.css';
-
-function MainContent({ children }: { children: React.ReactNode }) {
-  const { open, isMobile, state } = useSidebar();
-
-  return (
-    <main
-      className={cn(
-        'flex-1 min-w-0 overflow-x-hidden bg-gray-50 dark:bg-black transition-[padding] duration-200 ease-linear',
-        !isMobile &&
-          (state === 'expanded'
-            ? 'md:pl-(--sidebar-width)'
-            : 'md:pl-(--sidebar-width-icon)'),
-      )}
-    >
-      <div className="flex items-center justify-between px-6 py-2">
-        <div className="flex items-center gap-4">
-          <SidebarTrigger />
-          <Breadcrumbs />
-        </div>
-        {!open && (
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-primary-600 flex items-center justify-center md:hidden">
-              <span className="text-white font-bold text-xs">PG</span>
-            </div>
-            <span className="font-semibold text-sidebar-foreground md:hidden">
-              pg-boss
-            </span>
-          </div>
-        )}
-      </div>
-      <div className="px-6 pb-6 lg:px-8 lg:pb-8">{children}</div>
-    </main>
-  );
-}
 
 // Inline script to prevent flash of wrong theme
 const themeScript = `
@@ -64,31 +22,6 @@ const themeScript = `
       theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
     }
     document.documentElement.classList.add(theme);
-
-    const colorHex = {
-      emerald: '#059669',
-      teal: '#0d9488',
-      cyan: '#0891b2',
-      sky: '#0284c7',
-      blue: '#2563eb',
-      indigo: '#4f46e5',
-      violet: '#7c3aed',
-      purple: '#9333ea',
-    };
-    const colorTheme = localStorage.getItem('pg-boss-color-theme') || 'violet';
-    document.documentElement.dataset.colorTheme = colorTheme;
-
-    // Create favicon with color theme
-    const hex = colorHex[colorTheme] || colorHex.violet;
-    const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="6" fill="' + hex + '"/><text x="16" y="22" text-anchor="middle" font-family="system-ui,sans-serif" font-size="14" font-weight="bold" fill="white">PG</text></svg>';
-    var link = document.querySelector('link[rel="icon"]');
-    if (!link) {
-      link = document.createElement('link');
-      link.rel = 'icon';
-      link.type = 'image/svg+xml';
-      document.head.appendChild(link);
-    }
-    link.href = 'data:image/svg+xml,' + encodeURIComponent(svg);
   })();
 `;
 
@@ -112,10 +45,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <body className="bg-gray-50 dark:bg-black">
         <ThemeProvider>
           <LoadingBar />
-          <SidebarProvider>
-            <AppSidebar />
-            <MainContent>{children}</MainContent>
-          </SidebarProvider>
+          {children}
         </ThemeProvider>
         <ScrollRestoration />
         <Scripts />
