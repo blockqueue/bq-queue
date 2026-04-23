@@ -1,6 +1,10 @@
-import { Menu } from '@base-ui/react/menu'
-import { useTheme, COLOR_THEMES, type ColorTheme } from '~/components/theme-provider'
-import { cn } from '~/lib/utils'
+import { Menu } from '@base-ui/react/menu';
+import {
+  COLOR_THEMES,
+  useTheme,
+  type ColorTheme,
+} from '~/components/theme-provider';
+import { cn } from '~/lib/utils';
 
 // Map color names to their Tailwind CSS variable for the 500 shade
 const colorSwatchStyles: Record<ColorTheme, string> = {
@@ -12,7 +16,7 @@ const colorSwatchStyles: Record<ColorTheme, string> = {
   indigo: 'bg-indigo-500',
   violet: 'bg-violet-500',
   purple: 'bg-purple-500',
-}
+};
 
 const colorLabels: Record<ColorTheme, string> = {
   emerald: 'Emerald',
@@ -23,10 +27,10 @@ const colorLabels: Record<ColorTheme, string> = {
   indigo: 'Indigo',
   violet: 'Violet',
   purple: 'Purple',
-}
+};
 
-export function ColorThemePicker () {
-  const { colorTheme, setColorTheme } = useTheme()
+export function ColorThemePicker() {
+  const { colorTheme, setColorTheme } = useTheme();
 
   return (
     <Menu.Root>
@@ -35,22 +39,31 @@ export function ColorThemePicker () {
           'flex items-center gap-2 rounded-md p-2 w-full cursor-pointer',
           'text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent',
           'focus:outline-none',
-          'transition-colors'
+          'transition-colors',
         )}
         aria-label="Change color theme"
       >
-        <span className={cn('h-5 w-5 rounded-full shrink-0', colorSwatchStyles[colorTheme])} />
-        <span className="text-sm group-data-[state=collapsed]:hidden">{colorLabels[colorTheme]}</span>
+        <span
+          className={cn(
+            'h-5 w-5 rounded-full shrink-0',
+            colorSwatchStyles[colorTheme],
+          )}
+        />
+        <span className="text-sm group-data-[state=collapsed]:hidden">
+          {colorLabels[colorTheme]}
+        </span>
       </Menu.Trigger>
 
-      <Menu.Portal container={typeof document !== 'undefined' ? document.body : undefined}>
-        <Menu.Positioner className="z-[100]">
+      <Menu.Portal
+        container={typeof document !== 'undefined' ? document.body : undefined}
+      >
+        <Menu.Positioner className="z-100">
           <Menu.Popup
             className={cn(
-              'rounded-md border p-2 shadow-md z-[100]',
+              'rounded-md border p-2 shadow-md z-100',
               'bg-white border-gray-200',
               'dark:bg-gray-900 dark:border-gray-800',
-              'animate-in fade-in-0 zoom-in-95'
+              'animate-in fade-in-0 zoom-in-95',
             )}
           >
             <div className="grid grid-cols-4 gap-1.5">
@@ -62,7 +75,8 @@ export function ColorThemePicker () {
                     'outline-none',
                     'hover:scale-110',
                     colorSwatchStyles[color],
-                    colorTheme === color && 'ring-2 ring-offset-2 ring-gray-900 dark:ring-white dark:ring-offset-gray-900'
+                    colorTheme === color &&
+                      'ring-2 ring-offset-2 ring-gray-900 dark:ring-white dark:ring-offset-gray-900',
                   )}
                   onClick={() => setColorTheme(color)}
                   aria-label={color}
@@ -74,5 +88,5 @@ export function ColorThemePicker () {
         </Menu.Positioner>
       </Menu.Portal>
     </Menu.Root>
-  )
+  );
 }
