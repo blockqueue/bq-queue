@@ -94,7 +94,7 @@ export default function Login() {
                 autoComplete="email"
                 required
                 className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm transition-colors placeholder:text-gray-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-primary-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 dark:placeholder:text-gray-500"
-                placeholder="you@company.com"
+                placeholder="you@example.com"
               />
             </div>
 
@@ -122,29 +122,10 @@ export default function Login() {
               />
             </div>
 
-            <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-              <input
-                type="checkbox"
-                name="rememberMe"
-                className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-600 dark:border-gray-700 dark:bg-gray-900"
-              />
-              Remember me
-            </label>
-
             <Button type="submit" className="w-full" disabled={isSubmitting}>
               {isSubmitting ? 'Signing in...' : 'Sign in'}
             </Button>
           </Form>
-
-          <p className="mt-6 text-center text-sm text-gray-600 dark:text-gray-400">
-            Not sure what this is?{' '}
-            <Link
-              to="/"
-              className="font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300"
-            >
-              Visit the dashboard home
-            </Link>
-          </p>
         </CardContent>
       </Card>
     </main>

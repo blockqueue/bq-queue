@@ -93,6 +93,11 @@ export default createHonoServer({
   },
   getLoadContext(c) {
     const databases = getDatabaseConfigs();
+    const defaultDb = databases[0];
+
+    if (!defaultDb) {
+      throw new Error('No database configurations available');
+    }
 
     // Get selected database from query param or cookie
     const url = new URL(c.req.url);
@@ -100,14 +105,13 @@ export default createHonoServer({
       url.searchParams.get('db') ||
       c.req.header('cookie')?.match(/pgboss_db=([^;]+)/)?.[1] ||
       null;
-    const currentDb = findDatabaseById(databases, dbId) || databases[0];
+    const currentDb = findDatabaseById(databases, dbId) ?? defaultDb;
 
     return {
       databases,
       currentDb,
-      // Backwards-compatible accessors
-      DB_URL: currentDb?.url || 'postgres://localhost/pgboss',
-      SCHEMA: currentDb?.schema || 'pgboss',
+      DB_URL: currentDb.url,
+      SCHEMA: currentDb.schema,
     };
   },
 });
