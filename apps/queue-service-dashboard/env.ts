@@ -17,6 +17,9 @@ const EnvSchema = z.object({
   AUTH_REGISTRATION_BULK_MAX_SIZE: z.string().optional(),
   AUTH_REGISTRATION_RATE_LIMIT_MAX_REQUESTS: z.string().optional(),
   AUTH_REGISTRATION_RATE_LIMIT_WINDOW_MS: z.string().optional(),
+  AUTH_DEFAULT_USER_ENABLED: z.string().optional(),
+  AUTH_DEFAULT_USER_EMAIL: z.string().optional(),
+  AUTH_DEFAULT_USER_PASSWORD: z.string().optional(),
 });
 
 type EnvSchemaType = z.infer<typeof EnvSchema>;
@@ -46,6 +49,10 @@ const env: EnvSchemaType = {
     process.env.AUTH_REGISTRATION_RATE_LIMIT_MAX_REQUESTS ?? '10',
   AUTH_REGISTRATION_RATE_LIMIT_WINDOW_MS:
     process.env.AUTH_REGISTRATION_RATE_LIMIT_WINDOW_MS ?? '60000',
+  AUTH_DEFAULT_USER_ENABLED:
+    process.env.AUTH_DEFAULT_USER_ENABLED ?? 'false',
+  AUTH_DEFAULT_USER_EMAIL: process.env.AUTH_DEFAULT_USER_EMAIL,
+  AUTH_DEFAULT_USER_PASSWORD: process.env.AUTH_DEFAULT_USER_PASSWORD,
 };
 
 EnvSchema.parse(env);
