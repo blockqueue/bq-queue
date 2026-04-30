@@ -59,7 +59,7 @@ export function parseDatabaseConfig(): DatabaseConfig[] {
 /**
  * Extract database name from connection string for display
  */
-function extractDatabaseName(url: string): string | null {
+function extractDatabaseName(url: string): string | null | undefined {
   try {
     // Handle postgres:// URLs
     const match = url.match(/\/([^/?]+)(?:\?|$)/);

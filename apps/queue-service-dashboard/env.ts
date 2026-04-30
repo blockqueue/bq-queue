@@ -2,7 +2,6 @@ import 'dotenv/config';
 import { z } from 'zod';
 
 const EnvSchema = z.object({
-  PORT: z.coerce.number().min(3000).max(10000).transform(String),
   NODE_ENV: z.string(),
 
   DATABASE_URL: z.string(),
@@ -12,11 +11,14 @@ const EnvSchema = z.object({
   PGBOSS_SCHEMA: z.string().optional(),
 
   PGBOSS_DASHBOARD_JWT_SECRET: z.string().optional(),
+
   AUTH_SCHEMA: z.string().optional(),
   AUTH_REGISTRATION_API_KEY: z.string().optional(),
   AUTH_REGISTRATION_BULK_MAX_SIZE: z.string().optional(),
   AUTH_REGISTRATION_RATE_LIMIT_MAX_REQUESTS: z.string().optional(),
   AUTH_REGISTRATION_RATE_LIMIT_WINDOW_MS: z.string().optional(),
+
+  AUTH_DEFAULT_USER_FORCE_RESET: z.string().optional(),
   AUTH_DEFAULT_USER_ENABLED: z.string().optional(),
   AUTH_DEFAULT_USER_EMAIL: z.string().optional(),
   AUTH_DEFAULT_USER_PASSWORD: z.string().optional(),
@@ -31,7 +33,6 @@ declare global {
 }
 
 const env: EnvSchemaType = {
-  PORT: Number(process.env.PORT).toString(),
   NODE_ENV: process.env.NODE_ENV || 'development',
 
   DATABASE_URL: process.env.DATABASE_URL,
@@ -41,6 +42,7 @@ const env: EnvSchemaType = {
   PGBOSS_SCHEMA: process.env.PGBOSS_SCHEMA ?? 'pgboss',
 
   PGBOSS_DASHBOARD_JWT_SECRET: process.env.PGBOSS_DASHBOARD_JWT_SECRET,
+
   AUTH_SCHEMA: process.env.AUTH_SCHEMA ?? 'auth',
   AUTH_REGISTRATION_API_KEY: process.env.AUTH_REGISTRATION_API_KEY,
   AUTH_REGISTRATION_BULK_MAX_SIZE:
@@ -49,8 +51,8 @@ const env: EnvSchemaType = {
     process.env.AUTH_REGISTRATION_RATE_LIMIT_MAX_REQUESTS ?? '10',
   AUTH_REGISTRATION_RATE_LIMIT_WINDOW_MS:
     process.env.AUTH_REGISTRATION_RATE_LIMIT_WINDOW_MS ?? '60000',
-  AUTH_DEFAULT_USER_ENABLED:
-    process.env.AUTH_DEFAULT_USER_ENABLED ?? 'false',
+
+  AUTH_DEFAULT_USER_ENABLED: process.env.AUTH_DEFAULT_USER_ENABLED ?? 'false',
   AUTH_DEFAULT_USER_EMAIL: process.env.AUTH_DEFAULT_USER_EMAIL,
   AUTH_DEFAULT_USER_PASSWORD: process.env.AUTH_DEFAULT_USER_PASSWORD,
 };

@@ -36,7 +36,8 @@
     "cover:server": "vitest run --coverage --config vitest.config.server.ts",
     "typegen": "react-router typegen",
     "typecheck": "react-router typegen && tsc --noEmit",
-    "ci": "npm run typecheck && npm run cover:frontend && npm run cover:server"
+    "ci": "npm run typecheck && npm run cover:frontend && npm run cover:server",
+    "seed:defaultUser": "npx tsx ./app/lib/seed/default-user.seed.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.2.0",
